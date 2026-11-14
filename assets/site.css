@@ -954,168 +954,108 @@ body.pb-phone.pb-sheet-open{padding-bottom:60vh}
 
 /* ── 효과 팩 스타일 ── */
 /**
- * model-showcase / style.css
+ * parallax-layers / style.css
  * _core/core.css 를 먼저 불러오세요.
  */
 
 /* ================================================================== *
- * 1. 컨테이너 (사용자가 직접 붙이는 클래스)
+ * 1. 기능부 (필수)
  * ================================================================== */
 
-.fx-model {
+.fx-parallax-layers {
   position: relative;
-  display: block;
-  width: 100%;
-  /* 캔버스는 높이를 만들지 못하므로 비율을 고정합니다. */
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
+  /* depth 옵션을 쓸 때만 의미가 있지만, 켜두어도 비용은 없습니다. */
+  perspective: var(--fx-plx-perspective, 1200px);
+  transform-style: preserve-3d;
+}
+
+/*
+ * 레이어 하나의 최종 이동량 =
+ *   가로 : 마우스X × 계수 × mx
+ *   세로 : 마우스Y × 계수 × my  +  스크롤진행도 × 계수 × sy
+ *   높이 : 계수 × z
+ *
+ * JS는 컨테이너에 --fx-plx-x / -y / -s 세 개만 씁니다.
+ * 나머지 곱셈은 브라우저(CSS calc)가 처리하므로 레이어가 많아도 비용이 늘지 않습니다.
+ */
+.fx-parallax-layers [data-fx-layer] {
+  transform: translate3d(
+    calc(var(--fx-plx-x, 0) * var(--fx-layer, 0) * var(--fx-plx-mx, -26px)),
+    calc(
+      var(--fx-plx-y, 0) * var(--fx-layer, 0) * var(--fx-plx-my, -26px) +
+      var(--fx-plx-s, 0) * var(--fx-layer, 0) * var(--fx-plx-sy, 70px)
+    ),
+    calc(var(--fx-layer, 0) * var(--fx-plx-z, 0px))
+  );
+  will-change: transform;
+}
+
+/* 꺼졌을 때는 모든 레이어를 제자리에 둡니다. */
+.fx-parallax-layers.fx-inert [data-fx-layer] {
+  transform: none;
+  will-change: auto;
+}
+
+/* ================================================================== *
+ * 2. 선택 사항 — 히어로 레이아웃 스타터
+ *
+ * 레이어를 겹쳐 쌓는 가장 흔한 구조입니다.
+ * 이미 히어로 디자인이 있으면 이 블록은 지우세요.
+ * ================================================================== */
+
+.fx-hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: min(78vh, 720px);
+  overflow: hidden;               /* 레이어가 밖으로 새어나가지 않게 */
   border-radius: var(--fx-radius, 16px);
-  /*
-   * 상자 배경은 **페이지 테마**를 따릅니다.
-   *
-   * 예전에는 --fx-surface-2만 썼습니다. 이 값은 OS의 다크 모드(prefers-color-scheme)를
-   * 따라 #1e2027로 뒤집히는데, 페이지는 밝은 테마 그대로라 상자만 새까매졌습니다.
-   * 모델을 올리기 전 안내 글이 그 검정 위에 깔려 읽히지 않았습니다.
-   * --wf-surface(페이지 테마 값)를 먼저 보고, 팩을 단독으로 쓸 때만 종전 값으로 물러납니다.
-   */
-  background: var(--wf-surface, var(--fx-surface-2));
+  background: var(--fx-surface-2);
   isolation: isolate;
 }
 
-/* ================================================================== *
- * 2. 포스터 — 3단 로딩의 1단계
- *
- * HTML에 미리 존재합니다. JS가 없어도, WebGL이 없어도, 로드가 실패해도
- * 이 이미지는 항상 보입니다.
- * ================================================================== */
-
-.fx-model__poster {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  transition: opacity 500ms var(--fx-ease-out);
+/* 겹쳐 쌓이는 레이어: 전부 같은 그리드 칸에 배치 */
+/* 편집 표시(wf__로 시작: 이름표 줄 · 손잡이 · 효과 표식)는 빼야 섹션 테두리에 붙어 있습니다(사용자 확인, 2026-11-13) */
+.fx-hero > *:not([class^="wf__"]) {
+  grid-area: 1 / 1;
 }
 
-/* 모델이 완전히 뜨면 포스터를 걷어냅니다 */
-.fx-model--loaded .fx-model__poster {
-  opacity: 0;
-  pointer-events: none;
+.fx-hero__bg {
+  width: 108%;                    /* 움직여도 가장자리가 비지 않도록 여유분 */
+  height: 108%;
+  object-fit: cover;
+  justify-self: center;
+  align-self: center;
 }
 
-/* ================================================================== *
- * 3. model-viewer
- * ================================================================== */
-
-.fx-model__viewer {
-  position: absolute;
-  inset: 0;
+.fx-hero__content {
+  position: relative;
   z-index: 2;
-  width: 100%;
-  height: 100%;
-  /* 로드 전에는 투명 — 포스터가 그대로 보입니다 */
-  opacity: 0;
-  transition: opacity 500ms var(--fx-ease-out);
-
-  /* 기본 배경 제거(포스터/컨테이너 배경을 쓰기 위해) */
-  background-color: transparent;
-  --poster-color: transparent;
-
-  /* 드래그로 회전할 수 있다는 신호 */
-  cursor: grab;
-}
-
-.fx-model__viewer:active {
-  cursor: grabbing;
-}
-
-.fx-model--loaded .fx-model__viewer {
-  opacity: 1;
-}
-
-/* ================================================================== *
- * 4. 로딩 진행 표시
- *
- * --fx-model-progress (0~1)를 JS가 갱신합니다.
- * GLB는 보통 1~10MB라 로딩이 체감됩니다. 진행률이 없으면
- * 방문자는 "고장났나?" 하고 스크롤을 내려버립니다.
- * ================================================================== */
-
-.fx-model::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  z-index: 3;
-  height: 2px;
-  width: calc(var(--fx-model-progress, 0) * 100%);
-  background: var(--fx-accent);
-  opacity: 0;
-  transition: opacity 300ms var(--fx-ease);
-  pointer-events: none;
-}
-
-.fx-model--loading::after {
-  opacity: 1;
-}
-
-/* ================================================================== *
- * 5. 실패 상태
- *
- * 아무 표시 없이 포스터만 남으면 개발 중에 눈치채기 어렵습니다.
- * 아주 은은한 표시만 남깁니다(방문자에게는 거의 안 보이게).
- * ================================================================== */
-
-.fx-model--failed {
-  outline: 1px dashed color-mix(in srgb, var(--fx-text-dim) 40%, transparent);
-  outline-offset: -1px;
-}
-
-/* ================================================================== *
- * 6. 선택 사항 — 조작 힌트
- * ================================================================== */
-
-.fx-model__hint {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  z-index: 4;
-  transform: translateX(-50%);
-
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-
+  text-align: center;
+  padding: 32px;
   color: var(--fx-text);
-  background: color-mix(in srgb, var(--fx-surface) 82%, transparent);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--fx-border);
+}
 
-  opacity: 0;
-  transition: opacity 400ms var(--fx-ease-out) 600ms;
+.fx-hero__title {
+  margin: 0 0 12px;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.fx-hero__sub {
+  margin: 0;
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  color: var(--fx-text-dim);
+}
+
+/* 장식용 원형 블롭 — 레이어 계수를 다르게 주면 깊이가 살아납니다 */
+.fx-hero__blob {
+  width: clamp(180px, 30vw, 380px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.55;
   pointer-events: none;
 }
-
-.fx-model--loaded .fx-model__hint {
-  opacity: 1;
-}
-
-/* 사용자가 한 번 조작하면 힌트를 감춥니다(JS로 클래스 추가) */
-.fx-model--touched .fx-model__hint {
-  opacity: 0;
-  transition-delay: 0ms;
-}
-
-/* ================================================================== *
- * 7. 선택 사항 — 비율 변형
- * ================================================================== */
-
-.fx-model--square { aspect-ratio: 1; }
-.fx-model--wide   { aspect-ratio: 16 / 9; }
-.fx-model--tall   { aspect-ratio: 3 / 4; }
