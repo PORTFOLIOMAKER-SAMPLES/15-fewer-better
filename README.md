@@ -16,8 +16,8 @@ python -m http.server 5500
 ## 페이지
 
 - `index.html` — 홈
-- `작업.html` — 작업
 - `서비스.html` — 서비스
+- `작업.html` — 작업
 - `상담-신청.html` — 상담 신청
 
 ## 구조
